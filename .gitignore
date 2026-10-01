@@ -6,6 +6,8 @@ sessions.json
 history.csv
 sessions-history.jsonl
 responses.jsonl
+config.local.json
+experiment-backups/
 
 # local-only tooling
 .verify-tmp/

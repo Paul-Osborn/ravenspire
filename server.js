@@ -9,6 +9,7 @@ const { persona, personaAt, NAMES } = require('./persona');
 const { describeActivity } = require('./activity');
 const roles = require('./roles');
 const { startDesktopWatcher } = require('./desktop-watcher');
+const { loadConfig, LOCAL_CONFIG_FILE } = require('./config');
 
 // Assign a persona whose name isn't already used by another live session.
 function assignPersona(id) {
@@ -25,9 +26,7 @@ const ACTIVE_GAP_CAP = 5 * 60 * 1000; // gaps longer than 5 min don't count as w
 
 // Config (editable in config.json)
 let CONFIG = { port: 3456, staleMinutes: 15, abandonMinutes: 45, autoStart: true };
-try {
-  CONFIG = { ...CONFIG, ...JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8')) };
-} catch { /* defaults */ }
+CONFIG = { ...CONFIG, ...loadConfig() };
 // Server-side notifications (reach the user even with no browser tab open).
 // toast: native Windows toast · stops: also alert on turn-end ("your turn")
 // ntfyTopic/telegram*/webhookUrl: phone push channels · remindMinutes: nag once
@@ -39,13 +38,14 @@ CONFIG.notify = {
 
 function saveConfig() {
   try {
-    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(CONFIG, null, 2));
+    fs.writeFileSync(LOCAL_CONFIG_FILE, JSON.stringify(CONFIG, null, 2));
   } catch (e) {
     console.error('[Config] save failed:', e.message);
   }
 }
 
 const PORT = process.env.PORT || CONFIG.port || 3456;
+const HOST = CONFIG.host || '127.0.0.1';
 const STATE_FILE = path.join(__dirname, 'sessions.json');
 const HISTORY_FILE = path.join(__dirname, 'history.csv');
 const HISTORY_HEADER = 'timestamp,sessions,active,waiting,tokens,api_cost_usd,labor_cost_usd\n';
@@ -72,17 +72,22 @@ function loadState() {
 }
 
 let saveTimer = null;
+function flushState() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify([...sessions.values()], null, 2));
+  } catch (e) {
+    console.error('[State] save failed:', e.message);
+  }
+}
 function saveState() {
   if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    try {
-      fs.writeFileSync(STATE_FILE, JSON.stringify([...sessions.values()], null, 2));
-    } catch (e) {
-      console.error('[State] save failed:', e.message);
-    }
-  }, 500);
+  saveTimer = setTimeout(flushState, 500);
 }
+process.on('exit', () => { if (saveTimer) flushState(); });
+process.on('SIGINT', () => process.exit(0));
+process.on('SIGTERM', () => process.exit(0));
 
 // Append an aggregate metrics snapshot to history.csv (append-only time series).
 function appendHistory(reason) {
@@ -812,6 +817,14 @@ const server = http.createServer((req, res) => {
   else if (urlPath === '/dashboard' || urlPath === '/dashboard/') urlPath = '/dashboard.html';
   else if (urlPath === '/history' || urlPath === '/history/') urlPath = '/history.html';
   else if (urlPath === '/rpg' || urlPath === '/rpg/' || urlPath === '/game') urlPath = '/rpg.html';
+  // Serve UI assets only; config, transcripts, runtime files and .git are private.
+  const publicFiles = new Set([
+    '/app.html', '/dashboard.html', '/history.html', '/rpg.html', '/sw.js',
+    '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png',
+    '/icon-512-maskable.png', '/apple-touch-icon.png', '/favicon-32.png',
+    '/ravenspire-dashboard.png', '/ravenspire-history.png', '/ravenspire-rpg.png',
+  ]);
+  if (!publicFiles.has(urlPath)) { res.writeHead(404); res.end('Not found'); return; }
   let filePath = path.join(__dirname, urlPath);
   const ext = path.extname(filePath);
   const contentTypes = {
@@ -838,13 +851,7 @@ wss.on('connection', (ws) => {
 });
 
 loadState();
-server.listen(PORT, '0.0.0.0', () => {
-  const os = require('os');
-  const nets = os.networkInterfaces();
-  let localIP = 'YOUR_IP';
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) if (net.family === 'IPv4' && !net.internal) { localIP = net.address; break; }
-  }
+server.listen(PORT, HOST, () => {
   console.log(`
 +--------------------------------------------------+
 |              ⚔  R A V E N S P I R E  ⚔           |
@@ -852,7 +859,7 @@ server.listen(PORT, '0.0.0.0', () => {
   Quest world:   http://localhost:${PORT}
   Control panel: http://localhost:${PORT}/dashboard
   History:       http://localhost:${PORT}/history
-  Network:       http://${localIP}:${PORT}
+  Listen address: ${HOST}:${PORT}
   Events:        POST http://localhost:${PORT}/event
 
 The guild doors are open. Waiting for agents...`);

@@ -13,26 +13,26 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { loadConfig, readJSON } = require('./config');
 
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry');
 const settingsArg = args.indexOf('--settings');
 const SETTINGS = settingsArg >= 0 && args[settingsArg + 1]
   ? path.resolve(args[settingsArg + 1])
-  : path.join(os.homedir(), '.claude', 'settings.json');
+  : path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'settings.json');
 
 const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'Notification', 'SessionEnd'];
 const SCRIPT = path.join(__dirname, 'send-event.ps1').replace(/\\/g, '/');
 
 // read the port from config.json so the hooks point at the right server
-let port = 3456;
-try { port = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8')).port || 3456; } catch {}
+const port = loadConfig().port || 3456;
 const SERVER = `http://127.0.0.1:${port}`;
 
 // powershell on Windows, pwsh elsewhere (PowerShell 7 is cross-platform)
 const shell = process.platform === 'win32' ? 'powershell' : 'pwsh';
 const commandFor = (event) =>
-  `${shell} -NoProfile -ExecutionPolicy Bypass -Command "& '${SCRIPT}' -Type ${event} -Server '${SERVER}'"`;
+  `${shell} -NoProfile -ExecutionPolicy Bypass -File "${SCRIPT}" -Type ${event} -Server "${SERVER}"`;
 
 function isOurs(hookCmd) {
   return typeof hookCmd === 'string' && hookCmd.includes('send-event.ps1');
@@ -47,7 +47,7 @@ function main() {
   let settings = {};
   let existed = false;
   try {
-    settings = JSON.parse(fs.readFileSync(SETTINGS, 'utf8'));
+    settings = readJSON(SETTINGS);
     existed = true;
   } catch (e) {
     if (fs.existsSync(SETTINGS)) {

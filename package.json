@@ -7,6 +7,8 @@
     "start": "node server.js",
     "setup": "node setup-hooks.js",
     "setup:codex": "node setup-hooks-codex.js",
+    "test": "node --test tests/experiment.test.js",
+    "experiment:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
     "icons": "node generate-icons.js",
     "demo:record": "node scripts/record-demo.cjs"
   },

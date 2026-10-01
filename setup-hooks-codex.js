@@ -13,29 +13,28 @@
 // and badge those sessions. Safe by design: timestamped backup, merge (your own
 // hooks are kept), idempotent (re-running updates Ravenspire's entries in place).
 //
-// Note: Codex has no SessionEnd hook, so Codex heroes leave the board via the
-// server's stale sweep (config.json staleMinutes/abandonMinutes) instead.
+// Current Codex supports SessionEnd. Older clients should be updated before setup.
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { loadConfig, readJSON } = require('./config');
 
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry');
 const hooksArg = args.indexOf('--hooks');
 const HOOKS_FILE = hooksArg >= 0 && args[hooksArg + 1]
   ? path.resolve(args[hooksArg + 1])
-  : path.join(os.homedir(), '.codex', 'hooks.json');
+  : path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'hooks.json');
 
 // Codex's valid lifecycle events we care about. PermissionRequest is Codex's
 // "needs you" (approval prompt) — the analog of Claude's Notification.
 const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUse', 'PermissionRequest']);
-const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PermissionRequest', 'Stop'];
+const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PermissionRequest', 'Stop', 'SessionEnd'];
 const SCRIPT = path.join(__dirname, 'send-event.ps1').replace(/\\/g, '/');
 
 // read the port from config.json so the hooks point at the right server
-let port = 3456;
-try { port = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8')).port || 3456; } catch {}
+const port = loadConfig().port || 3456;
 const SERVER = `http://127.0.0.1:${port}`;
 
 // command runs on macOS/Linux (pwsh); commandWindows overrides it on Windows.
@@ -48,6 +47,7 @@ function hookObj(event) {
     command: pwshCmd(event, 'pwsh'),
     commandWindows: pwshCmd(event, 'powershell'),
     statusMessage: 'Ravenspire',
+    ...(event === 'SessionEnd' ? { timeout: 3 } : {}),
   };
 }
 function entryFor(event) {
@@ -69,7 +69,7 @@ function main() {
   let root = {};
   let existed = false;
   try {
-    root = JSON.parse(fs.readFileSync(HOOKS_FILE, 'utf8'));
+    root = readJSON(HOOKS_FILE);
     existed = true;
   } catch (e) {
     if (fs.existsSync(HOOKS_FILE)) {
@@ -118,6 +118,7 @@ function main() {
   }
   fs.writeFileSync(HOOKS_FILE, JSON.stringify(root, null, 2));
   console.log(`\n✅ Codex hooks installed. Start a new Codex session and open ${SERVER} — Codex agents will join the guild (✳️ codex badge). Restart the Ravenspire server first so it has the code that recognizes Codex sessions.`);
+  console.log('In Codex CLI, open /hooks and review/trust the Ravenspire commands. Untrusted hooks are skipped.');
 }
 
 main();

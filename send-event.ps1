@@ -21,6 +21,7 @@ if (-not $Server) { $Server = "http://127.0.0.1:3456" }
 # Read the hook payload from stdin (may be empty for some invocations)
 $payload = $null
 try {
+    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
     $raw = [Console]::In.ReadToEnd()
     if ($raw) { $payload = $raw | ConvertFrom-Json }
 } catch {
@@ -179,7 +180,8 @@ $body = @{
 } | ConvertTo-Json -Compress
 
 try {
-    Invoke-RestMethod -Uri "$Server/event" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 2 | Out-Null
+    Invoke-RestMethod -Uri "$Server/event" -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8" -TimeoutSec 2 | Out-Null
 } catch {
     # Silently ignore if the server is down
 }
+exit 0

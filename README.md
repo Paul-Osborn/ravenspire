@@ -6,6 +6,9 @@ Every **Claude Code** *and* **OpenAI Codex** session on your machine becomes a p
 
 Zero build. Zero frameworks. One `npm start`.
 
+**Paul-Osborn Windows experiment:** see [the Windows runbook](docs/windows-experiment.md)
+and [inspection / validation report](docs/experiment-review.md). The original UI is unchanged.
+
 
 https://github.com/user-attachments/assets/d0f26e25-d2a5-4430-96a4-f629a6a09c2f
 
