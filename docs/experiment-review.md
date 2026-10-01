@@ -40,7 +40,7 @@ most 16 heroes. The dashboard provides more operational detail than the canvas.
 | Finding | Consequence / current handling |
 | --- | --- |
 | GitHub connector exposes no fork operation; no authenticated GitHub CLI in this workspace | Created the requested native org fork through GitHub's browser workflow after sign-in; verified “forked from Kapala-Solutions/ravenspire.” Publish experiment changes through the connector and keep main at upstream |
-| This workspace is Linux, with no connection to Paul's Windows laptop | No honest claim of native Windows or real agent acceptance here; Windows-only bridge test and CI await execution on Windows |
+| This workspace is Linux, with no connection to Paul's Windows laptop | Windows bridge validation passed on GitHub's Windows Server 2025 runner; Windows 11 desktop behavior and real agent acceptance still need Paul's laptop |
 | Codex requires trust of non-managed hook definitions | Use `/hooks`; silently writing hooks is insufficient; no trust bypass added |
 | Current Codex supports SessionEnd, contrary to upstream installer comments | Add this hook with a three-second timeout so normal exits can archive; update old Codex clients |
 | Native local hooks cannot reach this laptop from cloud orchestration | Use native Windows local CLI sessions initially; do not expect this Work cloud thread to appear |
@@ -94,11 +94,11 @@ Ran locally using Node **v24.19.0**, installed runtime dependency with
 | `npm test`: hook merge/backups/BOM/dry-run/idempotence/invalid JSON | Pass |
 | `npm test`: custom Claude/Codex config homes | Pass |
 | `npm test`: HTTP/WebSocket events, Claude transcript, Codex task/tool/approval/stop/end, responses, archive, local config, restart persistence | Pass |
-| `npm test`: native Windows PowerShell syntax and installed-command Unicode delivery | Skipped here (Linux); configured to run on Windows |
+| `npm test`: native Windows PowerShell syntax and installed-command Unicode delivery | Skipped locally (Linux); passed on Windows CI |
 | `node --check` on all Node files and extracted inline scripts in all four HTML views | Pass |
 | `git diff --check` | Pass |
 | Rendered UI browser smoke test | Not completed: Chromium was absent and the attempted browser download returned an invalid archive. HTTP assets and inline script syntax validated; visual acceptance remains pending |
-| Windows GitHub Actions workflow | Prepared; not executed before fork publication |
+| Windows GitHub Actions workflow | Passed all 4 tests, 0 failures, 0 skips, on Windows Server 2025 with Node v22.23.3; [run 36869958944](https://github.com/Paul-Osborn/ravenspire/actions/runs/36869958944), tested commit `f7c4d758dbb9011dc7eed0519392c2ed1588e5a8` |
 | Real Claude Code/Codex on Paul's Windows laptop | Pending; no laptop access in this session |
 
 There was no upstream `test` script or CI workflow at the inspected commit.
@@ -107,7 +107,9 @@ Tests run in temporary copies and leave global agent settings untouched.
 
 ## Upstream workflow and experiment boundary
 
-After the native fork is created, the Windows checkout uses `origin` for
+The native GitHub fork was created and its upstream parent was verified. The
+published experiment has [draft PR #1](https://github.com/Paul-Osborn/ravenspire/pull/1);
+main remains at the inspected upstream commit. The Windows checkout uses `origin` for
 `Paul-Osborn/ravenspire` and `upstream` for `Kapala-Solutions/ravenspire`.
 Use an actual GitHub fork, keeping its parent relationship. On a clean checkout:
 
